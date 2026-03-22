@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { createChart, IChartApi, CandlestickSeries } from 'lightweight-charts'
+import { createChart, IChartApi } from 'lightweight-charts'
 import { fetchCandles, fetchActiveSignals } from '../lib/api'
 import { Badge, directionBadge } from '../components/Badge'
 
@@ -53,7 +53,7 @@ export function ChartPage() {
       height: 480,
     })
 
-    const candleSeries = chartApi.current.addSeries(CandlestickSeries, {
+    const candleSeries = chartApi.current.addCandlestickSeries({
       upColor: '#22c55e',
       downColor: '#ef4444',
       borderUpColor: '#22c55e',

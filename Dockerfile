@@ -2,11 +2,11 @@
 FROM node:20-slim AS frontend-builder
 
 WORKDIR /app/frontend
-COPY frontend/package.json frontend/package-lock.json* ./
-RUN npm ci --prefer-offline
+COPY frontend/package*.json ./
+RUN if [ -f package-lock.json ]; then npm ci --prefer-offline; else npm install --prefer-offline; fi
 
 COPY frontend/ .
-RUN npm run build
+RUN ./node_modules/.bin/vite build
 
 
 # ── Runtime stage: Python backend ─────────────────────────────────────────────
@@ -21,7 +21,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 
 # Python dependencies
-COPY pyproject.toml ./
+COPY pyproject.toml README.md ./
+COPY backend/ ./backend/
 RUN pip install --no-cache-dir -e ".[dev]" || pip install --no-cache-dir \
     fastapi uvicorn[standard] sqlalchemy[asyncio] alembic asyncpg psycopg2-binary \
     apscheduler httpx aiohttp tenacity pandas numpy scipy \
@@ -29,7 +30,6 @@ RUN pip install --no-cache-dir -e ".[dev]" || pip install --no-cache-dir \
     structlog rich python-dateutil pytz orjson cachetools
 
 # Copy application
-COPY backend/ ./backend/
 COPY alembic/ ./alembic/
 COPY alembic.ini ./
 
