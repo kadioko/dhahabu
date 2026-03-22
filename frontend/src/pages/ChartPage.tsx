@@ -16,7 +16,7 @@ export function ChartPage() {
   const chartApi = useRef<IChartApi | null>(null)
   const [timeframe, setTimeframe] = useState('1h')
 
-  const { data: candleData } = useQuery({
+  const { data: candleData, isLoading, isFetching } = useQuery({
     queryKey: ['candles', timeframe],
     queryFn: () => fetchCandles('XAU/USD', timeframe, 300),
     refetchInterval: 60_000,
@@ -88,6 +88,8 @@ export function ChartPage() {
     }
   }, [candleData, timeframe])
 
+  const candleCount = candleData?.candles?.length ?? 0
+  const hasCandles = candleCount > 0
   const latestPrice = candleData?.candles?.slice(-1)[0]?.close
 
   return (
@@ -118,12 +120,26 @@ export function ChartPage() {
         </div>
       </div>
 
-      {/* Chart */}
       <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
-        <div ref={chartRef} className="w-full" />
+        <div className="relative min-h-[480px]">
+          <div ref={chartRef} className="w-full h-[480px]" />
+          {(isLoading || isFetching) && (
+            <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-gray-950/50 text-sm text-gray-400">
+              Loading candles...
+            </div>
+          )}
+          {!isLoading && !isFetching && !hasCandles && (
+            <div className="absolute inset-0 flex items-center justify-center rounded-lg border border-dashed border-gray-700 bg-gray-950/30 text-sm text-gray-500">
+              No candle data available yet
+            </div>
+          )}
+        </div>
+        <div className="mt-3 flex items-center justify-between text-xs text-gray-500">
+          <span>{hasCandles ? `${candleCount} candles loaded` : 'Waiting for initial market data bootstrap'}</span>
+          <span>{timeframe}</span>
+        </div>
       </div>
 
-      {/* Signal markers overlay */}
       {signals && signals.length > 0 && (
         <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
           <div className="text-sm font-medium text-gray-400 mb-3">

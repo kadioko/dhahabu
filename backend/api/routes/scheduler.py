@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from typing import List
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,6 +14,13 @@ from backend.db.base import get_db
 from backend.db.models import SchedulerJobRun
 
 router = APIRouter()
+
+
+@router.get("/jobs/names")
+async def get_scheduler_job_names():
+    from backend.scheduler.service import get_job_names
+
+    return {"jobs": get_job_names()}
 
 
 @router.get("/jobs", response_model=List[SchedulerJobRunSchema])
@@ -60,8 +67,20 @@ async def get_latest_job_status(db: AsyncSession = Depends(get_db)):
                 "started_at": j.started_at.isoformat(),
                 "finished_at": j.finished_at.isoformat() if j.finished_at else None,
                 "status": j.status,
+                "details_json": j.details_json,
                 "error_message": j.error_message,
             }
             for j in jobs
         ]
     }
+
+
+@router.post("/jobs/{job_name}/run")
+async def run_scheduler_job(job_name: str):
+    from backend.scheduler.service import get_job_names, run_job_now
+
+    if job_name not in get_job_names():
+        raise HTTPException(status_code=404, detail=f"Unknown job {job_name!r}")
+
+    result = await run_job_now(job_name)
+    return {"success": True, **result}

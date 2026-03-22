@@ -141,6 +141,7 @@ export type SchedulerJob = {
   started_at: string
   finished_at: string | null
   status: string
+  details_json?: Record<string, unknown> | null
   error_message: string | null
 }
 
@@ -151,7 +152,36 @@ export type SystemComponent = {
   health_score: number | null
   last_run_at: string | null
   last_error: string | null
+  metadata_json?: Record<string, unknown> | null
   updated_at: string
+}
+
+export type SystemOverview = {
+  timestamp: string
+  latest_candle_at: string | null
+  candle_counts: Record<string, number>
+  component_count: number
+  latest_successful_job: {
+    job_name: string
+    started_at: string
+    finished_at: string | null
+    status: string
+  } | null
+  latest_failed_job: {
+    job_name: string
+    started_at: string
+    finished_at: string | null
+    status: string
+    error_message: string | null
+  } | null
+  latest_market_data_run: {
+    job_name: string
+    started_at: string
+    finished_at: string | null
+    status: string
+    details_json?: Record<string, unknown> | null
+    error_message: string | null
+  } | null
 }
 
 // API functions
@@ -202,6 +232,12 @@ export const fetchSchedulerJobs = () =>
 
 export const fetchSystemState = () =>
   api.get<SystemComponent[]>('/system/state').then(r => r.data)
+
+export const fetchSystemOverview = () =>
+  api.get<SystemOverview>('/system/overview').then(r => r.data)
+
+export const triggerSchedulerJob = (jobName: string) =>
+  api.post(`/scheduler/jobs/${jobName}/run`).then(r => r.data)
 
 export const fetchDailyPnL = (days = 30) =>
   api.get('/pnl/daily', { params: { days } }).then(r => r.data)

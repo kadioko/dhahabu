@@ -1,7 +1,7 @@
-import { useQuery } from '@tanstack/react-query'
-import { fetchSchedulerJobs, fetchSystemState } from '../lib/api'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { fetchSchedulerJobs, fetchSystemOverview, fetchSystemState, triggerSchedulerJob } from '../lib/api'
 import { Badge, statusBadge } from '../components/Badge'
-import { format, formatDistanceToNow } from 'date-fns'
+import { formatDistanceToNow } from 'date-fns'
 
 const JOB_DESCRIPTIONS: Record<string, string> = {
   market_data_ingest: 'Fetches XAUUSD candles from Twelve Data',
@@ -15,15 +15,88 @@ const JOB_DESCRIPTIONS: Record<string, string> = {
   dashboard_refresh: 'Pre-computes dashboard cache',
 }
 
+const MANUAL_JOBS = [
+  { jobName: 'market_data_ingest', label: 'Run market ingest' },
+  { jobName: 'health_check', label: 'Run health check' },
+  { jobName: 'trading_brain', label: 'Run trading brain' },
+  { jobName: 'self_healing_backtest', label: 'Run self-healing' },
+]
+
 export function SchedulerPage() {
+  const queryClient = useQueryClient()
   const { data: jobs } = useQuery({ queryKey: ['scheduler-jobs'], queryFn: fetchSchedulerJobs })
   const { data: components } = useQuery({ queryKey: ['system-state'], queryFn: fetchSystemState })
+  const { data: overview } = useQuery({ queryKey: ['system-overview'], queryFn: fetchSystemOverview })
+
+  const triggerJob = useMutation({
+    mutationFn: triggerSchedulerJob,
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['scheduler-jobs'] }),
+        queryClient.invalidateQueries({ queryKey: ['system-state'] }),
+        queryClient.invalidateQueries({ queryKey: ['system-overview'] }),
+      ])
+    },
+  })
 
   return (
     <div className="p-6 space-y-6">
       <h1 className="text-xl font-semibold text-gray-100">Scheduler Health</h1>
 
-      {/* Scheduler jobs */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+        <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
+          <div className="text-xs uppercase tracking-widest text-gray-500 mb-2">Latest Candle</div>
+          <div className="text-sm text-gray-100">
+            {overview?.latest_candle_at ? formatDistanceToNow(new Date(overview.latest_candle_at), { addSuffix: true }) : 'No candles yet'}
+          </div>
+          <div className="text-xs text-gray-500 mt-1">
+            {Object.entries(overview?.candle_counts ?? {}).map(([tf, count]) => `${tf}: ${count}`).join(' · ') || 'No timeframe counts yet'}
+          </div>
+        </div>
+        <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
+          <div className="text-xs uppercase tracking-widest text-gray-500 mb-2">Latest Success</div>
+          <div className="text-sm text-gray-100">{overview?.latest_successful_job?.job_name ?? 'No successful jobs yet'}</div>
+          <div className="text-xs text-gray-500 mt-1">
+            {overview?.latest_successful_job?.started_at ? formatDistanceToNow(new Date(overview.latest_successful_job.started_at), { addSuffix: true }) : 'Waiting for first completed run'}
+          </div>
+        </div>
+        <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
+          <div className="text-xs uppercase tracking-widest text-gray-500 mb-2">Market Data Run</div>
+          <div className="text-sm text-gray-100">{overview?.latest_market_data_run?.status ?? 'Not run yet'}</div>
+          <div className="text-xs text-gray-500 mt-1">
+            {overview?.latest_market_data_run?.started_at ? formatDistanceToNow(new Date(overview.latest_market_data_run.started_at), { addSuffix: true }) : 'Run market ingest to seed data'}
+          </div>
+        </div>
+        <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
+          <div className="text-xs uppercase tracking-widest text-gray-500 mb-2">Tracked Components</div>
+          <div className="text-sm text-gray-100">{overview?.component_count ?? 0}</div>
+          <div className="text-xs text-gray-500 mt-1">System state rows currently persisted</div>
+        </div>
+      </div>
+
+      <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 space-y-4">
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          <div>
+            <h2 className="font-medium text-gray-100">Manual Admin Triggers</h2>
+            <div className="text-sm text-gray-500 mt-1">Use these to validate the production pipeline without waiting for the next interval.</div>
+          </div>
+          {triggerJob.isSuccess && <Badge variant="green">Job completed</Badge>}
+          {triggerJob.isError && <Badge variant="red">Trigger failed</Badge>}
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {MANUAL_JOBS.map(({ jobName, label }) => (
+            <button
+              key={jobName}
+              onClick={() => triggerJob.mutate(jobName)}
+              disabled={triggerJob.isPending}
+              className="px-3 py-2 rounded-lg border border-gray-700 text-sm text-gray-200 hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {triggerJob.isPending && triggerJob.variables === jobName ? 'Running...' : label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       <div className="bg-gray-900 border border-gray-800 rounded-xl">
         <div className="px-5 py-4 border-b border-gray-800">
           <h2 className="font-medium text-gray-100">Active Jobs (last run)</h2>
@@ -49,6 +122,12 @@ export function SchedulerPage() {
                 {j.error_message && (
                   <div className="text-xs text-red-400/70 mt-1 font-mono bg-red-900/20 px-2 py-1 rounded max-w-lg truncate">
                     {j.error_message}
+                  </div>
+                )}
+                {!!j.details_json && (
+                  <div className="text-xs text-gray-500 mt-2 font-mono">
+                    {j.details_json.result && 'Latest result captured'}
+                    {typeof j.details_json.duration_seconds === 'number' && ` · ${j.details_json.duration_seconds.toFixed(1)}s`}
                   </div>
                 )}
               </div>
@@ -94,6 +173,11 @@ export function SchedulerPage() {
                   {c.last_error && (
                     <div className="text-xs text-red-400/60 mt-0.5 max-w-sm truncate">
                       {c.last_error}
+                    </div>
+                  )}
+                  {c.metadata_json?.duration_seconds && (
+                    <div className="text-xs text-gray-500 mt-0.5">
+                      Last duration {Number(c.metadata_json.duration_seconds).toFixed(1)}s
                     </div>
                   )}
                 </div>

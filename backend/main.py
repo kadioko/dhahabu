@@ -15,13 +15,37 @@ from typing import AsyncGenerator
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import ORJSONResponse
+from sqlalchemy import func, select
 
 from backend.core.config import settings
+from backend.core.constants import JobName
 from backend.core.logging import configure_logging, get_logger
-from backend.db.base import engine
-from backend.db.models import Base  # ensure models are registered
+from backend.db.base import engine, get_db_session
+from backend.db.models import Base, Candle  # ensure models are registered
 
 logger = get_logger(__name__)
+
+
+async def _bootstrap_market_data_if_empty() -> None:
+    from backend.scheduler.service import run_job_now
+
+    async with get_db_session() as db:
+        candle_count = await db.scalar(select(func.count()).select_from(Candle))
+
+    if candle_count and candle_count > 0:
+        logger.info("market_data.bootstrap.skipped", candle_count=candle_count)
+    else:
+        logger.info("market_data.bootstrap.start")
+        try:
+            result = await run_job_now(JobName.MARKET_DATA_INGEST)
+            logger.info("market_data.bootstrap.done", result=result)
+        except Exception as exc:
+            logger.error("market_data.bootstrap.failed", error=str(exc))
+
+    try:
+        await run_job_now(JobName.HEALTH_CHECK)
+    except Exception as exc:
+        logger.error("health_check.bootstrap.failed", error=str(exc))
 
 
 @asynccontextmanager
@@ -39,6 +63,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Start scheduler
     from backend.scheduler.service import start_scheduler
     await start_scheduler()
+    asyncio.create_task(_bootstrap_market_data_if_empty())
 
     logger.info("dhahabu.ready")
     yield

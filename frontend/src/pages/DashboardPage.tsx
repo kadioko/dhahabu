@@ -5,10 +5,11 @@ import {
   fetchActiveSignals,
   fetchOpenTrades,
   fetchStrategyRankings,
+  fetchSystemOverview,
 } from '../lib/api'
 import { StatCard } from '../components/StatCard'
 import { Badge, directionBadge, statusBadge } from '../components/Badge'
-import { format } from 'date-fns'
+import { format, formatDistanceToNow } from 'date-fns'
 
 export function DashboardPage() {
   const { data: summary } = useQuery({
@@ -31,14 +32,21 @@ export function DashboardPage() {
     queryKey: ['strategy-rankings'],
     queryFn: fetchStrategyRankings,
   })
+  const { data: overview } = useQuery({
+    queryKey: ['system-overview'],
+    queryFn: fetchSystemOverview,
+  })
 
   const isShutdown = summary?.trading_mode === 'shutdown'
   const pnlPct = summary?.pnl_today.realized_pnl_pct ?? 0
   const pnlPositive = pnlPct >= 0
+  const hasSignals = (signals?.length ?? 0) > 0
+  const hasRankings = (rankings?.rankings?.length ?? 0) > 0
+  const hasSystemHealth = (summary?.system_health.total_components ?? 0) > 0
+  const isInitializing = !hasSignals || !hasRankings || !hasSystemHealth
 
   return (
     <div className="p-6 space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-semibold text-gray-100">Command Center</h1>
@@ -46,7 +54,10 @@ export function DashboardPage() {
             {summary?.timestamp ? format(new Date(summary.timestamp), 'MMM d, yyyy HH:mm') : '—'} UTC
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap justify-end">
+          {overview?.latest_candle_at && (
+            <Badge variant="blue">Candle {formatDistanceToNow(new Date(overview.latest_candle_at), { addSuffix: true })}</Badge>
+          )}
           {isShutdown ? (
             <Badge variant="red">🚨 24H SHUTDOWN</Badge>
           ) : (
@@ -55,7 +66,6 @@ export function DashboardPage() {
         </div>
       </div>
 
-      {/* Shutdown Banner */}
       {isShutdown && (
         <div className="bg-red-950/50 border border-red-500/30 rounded-xl p-4 flex items-start gap-3">
           <span className="text-2xl">🚨</span>
@@ -71,7 +81,20 @@ export function DashboardPage() {
         </div>
       )}
 
-      {/* KPI Row */}
+      {isInitializing && (
+        <div className="bg-blue-950/30 border border-blue-500/20 rounded-xl p-4">
+          <div className="text-blue-300 font-medium">System is healthy and still warming up</div>
+          <div className="text-sm text-blue-100/70 mt-1">
+            Market data is connected. Signals, rankings, and component health will appear as scheduler jobs complete and strategies emit outputs.
+          </div>
+          <div className="text-xs text-blue-100/50 mt-2">
+            {overview?.latest_successful_job?.job_name
+              ? `Latest completed job: ${overview.latest_successful_job.job_name}`
+              : 'No completed scheduler jobs have been recorded yet'}
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           label="Today's PnL"
@@ -98,7 +121,6 @@ export function DashboardPage() {
         />
       </div>
 
-      {/* Second KPI row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           label="Live Strategies"
@@ -134,7 +156,6 @@ export function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Active Signals */}
         <div className="bg-gray-900 border border-gray-800 rounded-xl">
           <div className="px-5 py-4 border-b border-gray-800 flex items-center justify-between">
             <h2 className="font-medium text-gray-100">Active Signals</h2>
@@ -143,7 +164,7 @@ export function DashboardPage() {
           <div className="divide-y divide-gray-800">
             {(!signals || signals.length === 0) && (
               <div className="px-5 py-8 text-center text-gray-600 text-sm">
-                No active signals in the last 4 hours
+                No active signals in the last 4 hours. Run the trading brain or wait for the next cycle.
               </div>
             )}
             {signals?.slice(0, 5).map((s) => (
@@ -170,7 +191,6 @@ export function DashboardPage() {
           </div>
         </div>
 
-        {/* Strategy Leaderboard */}
         <div className="bg-gray-900 border border-gray-800 rounded-xl">
           <div className="px-5 py-4 border-b border-gray-800">
             <h2 className="font-medium text-gray-100">Strategy Leaderboard</h2>
@@ -178,7 +198,7 @@ export function DashboardPage() {
           <div className="divide-y divide-gray-800">
             {(!rankings?.rankings || rankings.rankings.length === 0) && (
               <div className="px-5 py-8 text-center text-gray-600 text-sm">
-                No live parameter sets yet
+                No live parameter sets yet. Self-healing and optimization jobs have not promoted any strategy versions.
               </div>
             )}
             {rankings?.rankings?.map((r: any) => (
@@ -208,12 +228,15 @@ export function DashboardPage() {
         </div>
       </div>
 
-      {/* Open Trades */}
-      {openTrades && openTrades.length > 0 && (
-        <div className="bg-gray-900 border border-gray-800 rounded-xl">
-          <div className="px-5 py-4 border-b border-gray-800">
-            <h2 className="font-medium text-gray-100">Open Trades</h2>
+      <div className="bg-gray-900 border border-gray-800 rounded-xl">
+        <div className="px-5 py-4 border-b border-gray-800">
+          <h2 className="font-medium text-gray-100">Open Trades</h2>
+        </div>
+        {(!openTrades || openTrades.length === 0) ? (
+          <div className="px-5 py-8 text-center text-gray-600 text-sm">
+            No open trades right now. The trade lifecycle panel will populate after approved signals trigger entries.
           </div>
+        ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -244,8 +267,8 @@ export function DashboardPage() {
               </tbody>
             </table>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   )
 }
