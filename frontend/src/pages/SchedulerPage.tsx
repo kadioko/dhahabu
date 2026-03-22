@@ -175,9 +175,9 @@ export function SchedulerPage() {
                       {c.last_error}
                     </div>
                   )}
-                  {c.metadata_json?.duration_seconds && (
+                  {typeof c.metadata_json?.duration_seconds === 'number' && (
                     <div className="text-xs text-gray-500 mt-0.5">
-                      Last duration {Number(c.metadata_json.duration_seconds).toFixed(1)}s
+                      Last duration {c.metadata_json.duration_seconds.toFixed(1)}s
                     </div>
                   )}
                 </div>
