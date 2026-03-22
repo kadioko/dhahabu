@@ -5,15 +5,16 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 3000,
+    // Local dev proxy — not used in Vercel/production builds
     proxy: {
       '/api': {
-        target: process.env.VITE_API_URL || 'http://localhost:8000',
+        target: 'http://localhost:8000',
         changeOrigin: true,
       },
     },
   },
   build: {
-    outDir: '../backend/static',
+    outDir: 'dist',
     emptyOutDir: true,
   },
 })
