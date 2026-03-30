@@ -11,6 +11,8 @@ import { StatCard } from '../components/StatCard'
 import { Badge, directionBadge, statusBadge } from '../components/Badge'
 import { format, formatDistanceToNow } from 'date-fns'
 
+const CONSECUTIVE_SL_LIMIT = 8
+
 export function DashboardPage() {
   const { data: summary } = useQuery({
     queryKey: ['dashboard'],
@@ -116,8 +118,8 @@ export function DashboardPage() {
         <StatCard
           label="Consecutive SL"
           value={risk?.consecutive_sl_hits ?? 0}
-          sub={`limit: ${8}`}
-          urgent={(risk?.consecutive_sl_hits ?? 0) >= 6}
+          sub={`limit: ${CONSECUTIVE_SL_LIMIT}`}
+          urgent={(risk?.consecutive_sl_hits ?? 0) >= CONSECUTIVE_SL_LIMIT - 2}
         />
       </div>
 
@@ -173,7 +175,7 @@ export function DashboardPage() {
                   <div className="flex items-center gap-2 mb-1">
                     {directionBadge(s.direction)}
                     <span className="text-sm font-medium text-gray-200">
-                      {s.strategy_name.replace('_', ' ').toUpperCase()}
+                      {s.strategy_name.replace(/_/g, ' ').toUpperCase()}
                     </span>
                   </div>
                   <div className="text-xs text-gray-500">
@@ -188,6 +190,11 @@ export function DashboardPage() {
                 </div>
               </div>
             ))}
+            {(signals?.length ?? 0) > 5 && (
+              <div className="px-5 py-2 text-center text-xs text-gray-600">
+                +{(signals?.length ?? 0) - 5} more — view all on Signals page
+              </div>
+            )}
           </div>
         </div>
 

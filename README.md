@@ -95,7 +95,7 @@ always on → track consecutive SL hits → ≥8 in a row?
 ```bash
 # 1. Copy and configure environment
 cp .env.example .env
-# Edit .env with your API keys
+# Edit .env with your API keys (TWELVE_DATA_API_KEY and TELEGRAM_* are required for live signals)
 
 # 2. Start PostgreSQL
 docker run -d -p 5432:5432 -e POSTGRES_DB=dhahabu -e POSTGRES_PASSWORD=password postgres:16
@@ -115,6 +115,8 @@ uvicorn backend.main:app --reload --port 8000
 # 7. Start the frontend (dev)
 cd frontend && npm install && npm run dev
 ```
+
+> **First run:** The dashboard will show a "Warming up" state until the first scheduler jobs complete. Trigger `market_data_ingest` and `trading_brain` manually from the Scheduler page (or via API) to populate data immediately rather than waiting for the 30-minute cycle.
 
 ## Railway Deployment
 
@@ -158,13 +160,55 @@ pytest tests/ -v --tb=short
 
 See `.env.example` for all configuration options.
 
-Key variables:
-- `DATABASE_URL` — async PostgreSQL URL
-- `TWELVE_DATA_API_KEY` — market data
-- `TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID` — signal delivery
-- `ACCOUNT_BALANCE` — for position sizing
-- `MAX_DAILY_LOSS_PCT` — circuit breaker threshold (default: 0.03)
-- `CONSECUTIVE_STOP_LOSSES_LIMIT` — shutdown trigger (default: 8)
+| Variable | Required | Default | Description |
+| -------- | -------- | ------- | ----------- |
+| `DATABASE_URL` | Yes | — | Async PostgreSQL URL (`postgresql+asyncpg://...`) |
+| `TWELVE_DATA_API_KEY` | Yes | — | Market data API key (twelvedata.com) |
+| `TELEGRAM_BOT_TOKEN` | No | — | Telegram bot token for signal delivery |
+| `TELEGRAM_CHAT_ID` | No | — | Telegram chat/channel ID for alerts |
+| `ACCOUNT_BALANCE` | Yes | — | Account balance in USD, used for position sizing |
+| `MAX_DAILY_LOSS_PCT` | No | `0.03` | Daily loss cap that blocks new trades (3%) |
+| `CONSECUTIVE_STOP_LOSSES_LIMIT` | No | `8` | Consecutive SL hits before 24h shutdown |
+| `MAX_SIMULTANEOUS_TRADES` | No | `5` | Max open trades at any time |
+| `VITE_API_URL` | No | `""` | Frontend API base URL (empty = same origin) |
+
+## Development Notes
+
+### Scheduler job intervals
+
+| Job | Interval | Purpose |
+| --- | -------- | ------- |
+| `market_data_ingest` | Every 15 min | Pulls latest XAUUSD candles |
+| `trading_brain` | Every 30 min | Generates and approves signals |
+| `trade_reconcile` | Every 15 min | Updates open trade states |
+| `self_healing_backtest` | Every 4h | Re-backtest + walk-forward + overfit detection |
+| `param_search_monte_carlo` | Every 6h | Parameter optimization + Monte Carlo |
+| `risk_monitor` | Every 15 min | Checks consecutive losses and daily cap |
+| `daily_reset` | Midnight UTC | Creates new daily PnL snapshot |
+| `health_check` | Every 5 min | Updates service component health |
+
+All jobs can be triggered manually via `POST /scheduler/jobs/{job_name}/run` or the Scheduler page in the UI.
+
+### Frontend environment
+
+The frontend reads `VITE_API_URL` at build time. For local development without a proxy, set it to `http://localhost:8000`. In Railway or Docker deployments, leave it empty to use same-origin routing.
+
+## Troubleshooting
+
+**Dashboard shows "Warming up" indefinitely**
+The trading brain has not run yet. Go to the Scheduler page and click "Run market ingest" then "Run trading brain". Data should appear within 30 seconds.
+
+**No candles in chart / candle count shows 0**
+`market_data_ingest` has not completed successfully. Check the Scheduler page for a failed job error message. Common causes: invalid `TWELVE_DATA_API_KEY` or rate limit exceeded (free tier: 8 calls/min).
+
+**Signals are being suppressed**
+Check the Risk page. Trading may be blocked due to: daily loss cap hit, active 24h shutdown, or `can_trade = false`. The block reason is shown on the Risk page.
+
+**`alembic upgrade head` fails**
+Ensure `DATABASE_URL` is set and PostgreSQL is running. The URL must use the `postgresql+asyncpg://` scheme for async support.
+
+**Self-healing shows all strategies as "No data"**
+`self_healing_backtest` has not run yet. Trigger it manually from the Scheduler page. It requires at least 7 days of candle history to backtest against.
 
 ---
 

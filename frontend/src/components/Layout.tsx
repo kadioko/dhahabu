@@ -1,4 +1,6 @@
 import { Link, Outlet, useLocation } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
+import { fetchSystemOverview } from '../lib/api'
 import clsx from 'clsx'
 
 const NAV = [
@@ -13,6 +15,20 @@ const NAV = [
 
 export function Layout() {
   const { pathname } = useLocation()
+  const { data: overview, isError, isLoading } = useQuery({
+    queryKey: ['system-overview'],
+    queryFn: fetchSystemOverview,
+    staleTime: 30_000,
+    retry: 1,
+  })
+
+  const statusDot = isError
+    ? { color: 'bg-red-400', label: 'API Offline' }
+    : isLoading
+    ? { color: 'bg-gray-500', label: 'Connecting...' }
+    : !overview?.latest_candle_at
+    ? { color: 'bg-yellow-400 animate-pulse', label: 'Warming up' }
+    : { color: 'bg-green-400 animate-pulse', label: 'System Online' }
 
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100 flex">
@@ -49,8 +65,8 @@ export function Layout() {
         {/* Status dot */}
         <div className="px-6 py-4 border-t border-gray-800">
           <div className="flex items-center gap-2 text-xs text-gray-500">
-            <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-            System Online
+            <div className={clsx('w-2 h-2 rounded-full flex-shrink-0', statusDot.color)} />
+            {statusDot.label}
           </div>
         </div>
       </aside>

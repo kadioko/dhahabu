@@ -1,5 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { fetchRiskState, fetchDailyPnL } from '../lib/api'
+
+const CONSECUTIVE_SL_LIMIT = 8
 import { StatCard } from '../components/StatCard'
 import { Badge } from '../components/Badge'
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
@@ -72,8 +74,8 @@ export function RiskPage() {
         <StatCard
           label="Consecutive SL"
           value={risk?.consecutive_sl_hits ?? 0}
-          sub="of 8 max"
-          urgent={(risk?.consecutive_sl_hits ?? 0) >= 6}
+          sub={`of ${CONSECUTIVE_SL_LIMIT} max`}
+          urgent={(risk?.consecutive_sl_hits ?? 0) >= CONSECUTIVE_SL_LIMIT - 2}
         />
         <StatCard
           label="Open Exposure"
@@ -92,25 +94,25 @@ export function RiskPage() {
         <div className="flex items-center justify-between mb-3">
           <h2 className="font-medium text-gray-200">Consecutive Stop-Loss Monitor</h2>
           <span className="text-sm text-gray-400 font-mono">
-            {risk?.consecutive_sl_hits ?? 0} / 8
+            {risk?.consecutive_sl_hits ?? 0} / {CONSECUTIVE_SL_LIMIT}
           </span>
         </div>
         <div className="h-3 bg-gray-800 rounded-full overflow-hidden">
           <div
             className={`h-full rounded-full transition-all ${
-              (risk?.consecutive_sl_hits ?? 0) >= 7
+              (risk?.consecutive_sl_hits ?? 0) >= CONSECUTIVE_SL_LIMIT - 1
                 ? 'bg-red-500'
-                : (risk?.consecutive_sl_hits ?? 0) >= 5
+                : (risk?.consecutive_sl_hits ?? 0) >= CONSECUTIVE_SL_LIMIT - 3
                 ? 'bg-orange-500'
                 : 'bg-yellow-500'
             }`}
-            style={{ width: `${Math.min(((risk?.consecutive_sl_hits ?? 0) / 8) * 100, 100)}%` }}
+            style={{ width: `${Math.min(((risk?.consecutive_sl_hits ?? 0) / CONSECUTIVE_SL_LIMIT) * 100, 100)}%` }}
           />
         </div>
         <div className="flex justify-between text-xs text-gray-600 mt-1">
           <span>0</span>
-          <span>4</span>
-          <span>8 → SHUTDOWN</span>
+          <span>{Math.floor(CONSECUTIVE_SL_LIMIT / 2)}</span>
+          <span>{CONSECUTIVE_SL_LIMIT} → SHUTDOWN</span>
         </div>
       </div>
 

@@ -10,6 +10,8 @@ interface StatCardProps {
 }
 
 export function StatCard({ label, value, sub, trend, urgent, className }: StatCardProps) {
+  const trendIcon = trend === 'up' ? '↑' : trend === 'down' ? '↓' : null
+
   return (
     <div
       className={clsx(
@@ -19,13 +21,23 @@ export function StatCard({ label, value, sub, trend, urgent, className }: StatCa
       )}
     >
       <div className="text-xs text-gray-500 uppercase tracking-widest mb-2">{label}</div>
-      <div
-        className={clsx(
-          'text-2xl font-bold tabular-nums',
-          urgent ? 'text-red-400' : trend === 'up' ? 'text-green-400' : trend === 'down' ? 'text-red-400' : 'text-gray-100'
+      <div className="flex items-baseline gap-1.5">
+        <div
+          className={clsx(
+            'text-2xl font-bold tabular-nums',
+            urgent ? 'text-red-400' : trend === 'up' ? 'text-green-400' : trend === 'down' ? 'text-red-400' : 'text-gray-100'
+          )}
+        >
+          {value}
+        </div>
+        {trendIcon && !urgent && (
+          <span className={clsx(
+            'text-sm font-semibold',
+            trend === 'up' ? 'text-green-500' : 'text-red-500'
+          )}>
+            {trendIcon}
+          </span>
         )}
-      >
-        {value}
       </div>
       {sub && <div className="text-xs text-gray-500 mt-1">{sub}</div>}
     </div>
