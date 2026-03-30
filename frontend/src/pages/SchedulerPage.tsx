@@ -31,6 +31,8 @@ export function SchedulerPage() {
   const triggerJob = useMutation({
     mutationFn: triggerSchedulerJob,
     onSuccess: async () => {
+      // Small delay to let the background job write its initial DB record
+      await new Promise(r => setTimeout(r, 1500))
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['scheduler-jobs'] }),
         queryClient.invalidateQueries({ queryKey: ['system-state'] }),
@@ -80,7 +82,7 @@ export function SchedulerPage() {
             <h2 className="font-medium text-gray-100">Manual Admin Triggers</h2>
             <div className="text-sm text-gray-500 mt-1">Use these to validate the production pipeline without waiting for the next interval.</div>
           </div>
-          {triggerJob.isSuccess && <Badge variant="green">Job completed</Badge>}
+          {triggerJob.isSuccess && <Badge variant="green">Job started</Badge>}
           {triggerJob.isError && <Badge variant="red">Trigger failed</Badge>}
         </div>
         <div className="flex flex-wrap gap-2">
@@ -175,9 +177,9 @@ export function SchedulerPage() {
                       {c.last_error}
                     </div>
                   )}
-                  {c.metadata_json?.duration_seconds && (
+                  {typeof c.metadata_json?.duration_seconds === 'number' && (
                     <div className="text-xs text-gray-500 mt-0.5">
-                      Last duration {Number(c.metadata_json.duration_seconds).toFixed(1)}s
+                      Last duration {c.metadata_json.duration_seconds.toFixed(1)}s
                     </div>
                   )}
                 </div>
