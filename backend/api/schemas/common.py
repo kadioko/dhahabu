@@ -81,6 +81,7 @@ class TradeSchema(BaseModel):
     pnl: Optional[float] = None
     pnl_pct: Optional[float] = None
     closed_reason: Optional[str] = None
+    broker_order_id: Optional[str] = None
     consecutive_loss_seq_snapshot: int
     created_at: datetime
 

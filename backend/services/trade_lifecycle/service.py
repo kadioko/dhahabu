@@ -26,6 +26,8 @@ from backend.core.config import settings
 from backend.core.logging import get_logger
 from backend.db.base import get_db_session
 from backend.db.models import Candle, DailyPnLSnapshot, Signal, Trade
+from backend.services.broker import get_broker
+from backend.services.broker.base import OrderSide, PlaceOrderRequest
 
 logger = get_logger(__name__)
 
@@ -119,6 +121,32 @@ async def _process_trade(trade: Trade, db) -> bool:
                 trade.updated_at = now
                 changed = True
                 logger.info("trade.triggered", trade_id=trade.id, entry=signal.entry)
+
+                # Submit to live broker (no-op for paper mode)
+                broker = get_broker()
+                if broker.name != "paper":
+                    try:
+                        req = PlaceOrderRequest(
+                            signal_id=trade.signal_id,
+                            side=OrderSide.BUY if direction == "long" else OrderSide.SELL,
+                            units=trade.position_size,
+                            entry=signal.entry,
+                            stop_loss=trade.stop_loss,
+                            take_profit=trade.take_profit,
+                            symbol=signal.symbol,
+                        )
+                        result = await broker.place_order(req)
+                        trade.broker_order_id = result.broker_order_id
+                        if result.fill_price:
+                            trade.entry_price = result.fill_price
+                        logger.info(
+                            "broker.order_placed",
+                            broker=broker.name,
+                            order_id=result.broker_order_id,
+                            fill_price=result.fill_price,
+                        )
+                    except Exception as exc:
+                        logger.error("broker.place_order.error", error=str(exc), trade_id=trade.id)
 
     # ── Open → Resolution ─────────────────────────────────────────────────────
     elif trade.status in ("triggered", "open"):

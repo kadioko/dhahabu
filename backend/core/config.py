@@ -94,6 +94,21 @@ class Settings(BaseSettings):
     shutdown_duration_hours: int = 24
     auto_reset_after_shutdown: bool = True
 
+    # ── Broker ────────────────────────────────────────────────────────────────
+    broker_mode: str = "paper"           # "paper", "oanda", or "ctrader"
+
+    # OANDA v20
+    oanda_api_key: str = ""
+    oanda_account_id: str = ""
+    oanda_environment: str = "practice"  # "practice" or "live"
+
+    # cTrader Open API (Pepperstone, IC Markets, etc.)
+    ctrader_client_id: str = ""
+    ctrader_client_secret: str = ""
+    ctrader_account_id: str = ""        # numeric account ID as string
+    ctrader_access_token: str = ""      # OAuth access token for the account
+    ctrader_environment: str = "demo"   # "demo" or "live"
+
     @field_validator("market_data_timeframes", mode="before")
     @classmethod
     def parse_timeframes(cls, v: str | list) -> list[str]:

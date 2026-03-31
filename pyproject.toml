@@ -42,6 +42,9 @@ dependencies = [
     # Telegram
     "python-telegram-bot>=21.3",
 
+    # Broker integrations
+    "ctrader-open-api>=0.9.2",
+
     # Logging / observability
     "structlog>=24.2.0",
     "rich>=13.7.1",
