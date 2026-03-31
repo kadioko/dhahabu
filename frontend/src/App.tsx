@@ -8,6 +8,7 @@ import { RiskPage } from './pages/RiskPage'
 import { SelfHealingPage } from './pages/SelfHealingPage'
 import { SchedulerPage } from './pages/SchedulerPage'
 import { ChartPage } from './pages/ChartPage'
+import { PnLPage } from './pages/PnLPage'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -28,6 +29,7 @@ export default function App() {
             <Route path="chart" element={<ChartPage />} />
             <Route path="signals" element={<SignalsPage />} />
             <Route path="trades" element={<TradesPage />} />
+            <Route path="pnl" element={<PnLPage />} />
             <Route path="risk" element={<RiskPage />} />
             <Route path="self-healing" element={<SelfHealingPage />} />
             <Route path="scheduler" element={<SchedulerPage />} />

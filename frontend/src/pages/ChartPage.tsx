@@ -49,7 +49,7 @@ export function ChartPage() {
         borderColor: '#374151',
         timeVisible: true,
       },
-      width: chartRef.current.clientWidth,
+      autoSize: true,
       height: 480,
     })
 
@@ -74,15 +74,7 @@ export function ChartPage() {
       chartApi.current.timeScale().fitContent()
     }
 
-    const handleResize = () => {
-      if (chartApi.current && chartRef.current) {
-        chartApi.current.applyOptions({ width: chartRef.current.clientWidth })
-      }
-    }
-    window.addEventListener('resize', handleResize)
-
     return () => {
-      window.removeEventListener('resize', handleResize)
       chartApi.current?.remove()
       chartApi.current = null
     }

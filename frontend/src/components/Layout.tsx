@@ -8,6 +8,7 @@ const NAV = [
   { to: '/chart', label: 'Chart', icon: '📈' },
   { to: '/signals', label: 'Signals', icon: '🎯' },
   { to: '/trades', label: 'Trades', icon: '💼' },
+  { to: '/pnl', label: 'PnL', icon: '💰' },
   { to: '/risk', label: 'Risk', icon: '🛡️' },
   { to: '/self-healing', label: 'Self-Healing', icon: '🔬' },
   { to: '/scheduler', label: 'Scheduler', icon: '⏱️' },
