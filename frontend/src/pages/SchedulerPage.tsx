@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { fetchSchedulerJobs, fetchSystemOverview, fetchSystemState, triggerSchedulerJob } from '../lib/api'
+import { AlertTriangle, RefreshCw, Wrench } from 'lucide-react'
 import { Badge, statusBadge } from '../components/Badge'
 import { formatDistanceToNow } from 'date-fns'
+import { API_BASE_URL, fetchSchedulerJobs, fetchSystemOverview, fetchSystemState, triggerSchedulerJob } from '../lib/api'
 
 const JOB_DESCRIPTIONS: Record<string, string> = {
   market_data_ingest: 'Fetches XAUUSD candles from Twelve Data',
@@ -19,8 +20,19 @@ const MANUAL_JOBS = [
   { jobName: 'market_data_ingest', label: 'Run market ingest' },
   { jobName: 'health_check', label: 'Run health check' },
   { jobName: 'trading_brain', label: 'Run trading brain' },
+  { jobName: 'risk_monitor', label: 'Run risk monitor' },
+  { jobName: 'trade_reconcile', label: 'Run trade reconcile' },
+  { jobName: 'param_search_monte_carlo', label: 'Run parameter search' },
+  { jobName: 'daily_reset', label: 'Run daily reset' },
   { jobName: 'self_healing_backtest', label: 'Run self-healing' },
 ]
+
+const QUICK_FIX_JOBS: Record<string, string> = {
+  risk_monitor: 'risk_monitor',
+  trade_reconcile: 'trade_reconcile',
+  market_data: 'market_data_ingest',
+  trading_brain: 'trading_brain',
+}
 
 export function SchedulerPage() {
   const queryClient = useQueryClient()
@@ -28,22 +40,46 @@ export function SchedulerPage() {
   const { data: components } = useQuery({ queryKey: ['system-state'], queryFn: fetchSystemState })
   const { data: overview } = useQuery({ queryKey: ['system-overview'], queryFn: fetchSystemOverview })
 
+  const refreshAll = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['scheduler-jobs'] }),
+      queryClient.invalidateQueries({ queryKey: ['system-state'] }),
+      queryClient.invalidateQueries({ queryKey: ['system-overview'] }),
+    ])
+  }
+
   const triggerJob = useMutation({
     mutationFn: triggerSchedulerJob,
     onSuccess: async () => {
       // Small delay to let the background job write its initial DB record
       await new Promise(r => setTimeout(r, 1500))
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['scheduler-jobs'] }),
-        queryClient.invalidateQueries({ queryKey: ['system-state'] }),
-        queryClient.invalidateQueries({ queryKey: ['system-overview'] }),
-      ])
+      await refreshAll()
     },
   })
 
+  const healthyComponents = components?.filter(c => c.status === 'healthy').length ?? 0
+  const totalComponents = components?.length ?? 0
+  const unknownComponents = components?.filter(c => c.status === 'unknown') ?? []
+  const latestBrainRun = jobs?.jobs?.find(j => j.job_name === 'trading_brain')
+  const latestFailedJobs = jobs?.jobs?.filter(j => j.status === 'failed') ?? []
+
   return (
     <div className="p-6 space-y-6">
-      <h1 className="text-xl font-semibold text-gray-100">Scheduler Health</h1>
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-xl font-semibold text-gray-100">Scheduler Health</h1>
+          <div className="text-sm text-gray-500 mt-1">
+            API target: <span className="font-mono text-gray-300">{API_BASE_URL}</span>
+          </div>
+        </div>
+        <button
+          onClick={() => void refreshAll()}
+          className="inline-flex items-center gap-2 rounded-lg border border-gray-700 px-3 py-2 text-sm text-gray-200 hover:bg-gray-800"
+        >
+          <RefreshCw className="h-4 w-4" />
+          Refresh all diagnostics
+        </button>
+      </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
         <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
@@ -72,9 +108,71 @@ export function SchedulerPage() {
         <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
           <div className="text-xs uppercase tracking-widest text-gray-500 mb-2">Tracked Components</div>
           <div className="text-sm text-gray-100">{overview?.component_count ?? 0}</div>
-          <div className="text-xs text-gray-500 mt-1">System state rows currently persisted</div>
+          <div className="text-xs text-gray-500 mt-1">
+            {healthyComponents}/{totalComponents} healthy components
+          </div>
+        </div>
+        <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
+          <div className="text-xs uppercase tracking-widest text-gray-500 mb-2">Trading Brain</div>
+          <div className="text-sm text-gray-100">{latestBrainRun?.status ?? 'Not run yet'}</div>
+          <div className="text-xs text-gray-500 mt-1">
+            {latestBrainRun?.started_at
+              ? formatDistanceToNow(new Date(latestBrainRun.started_at), { addSuffix: true })
+              : 'Run trading brain to generate signals'}
+          </div>
         </div>
       </div>
+
+      {unknownComponents.length > 0 && (
+        <div className="bg-amber-950/20 border border-amber-500/20 rounded-xl p-5">
+          <div className="flex items-center gap-2 text-amber-200 font-medium">
+            <Wrench className="h-4 w-4" />
+            Recommended actions for unknown components
+          </div>
+          <div className="text-sm text-amber-100/70 mt-1">
+            These components have no recorded runs yet. Triggering their matching jobs should usually clear them.
+          </div>
+          <div className="flex flex-wrap gap-2 mt-4">
+            {unknownComponents.map(component => {
+              const quickJob = QUICK_FIX_JOBS[component.component_name]
+              return quickJob ? (
+                <button
+                  key={component.id}
+                  onClick={() => triggerJob.mutate(quickJob)}
+                  disabled={triggerJob.isPending}
+                  className="px-3 py-2 rounded-lg border border-amber-500/20 text-sm text-amber-200 hover:bg-amber-500/10 disabled:opacity-50"
+                >
+                  Run {quickJob}
+                </button>
+              ) : (
+                <Badge key={component.id} variant="yellow">{component.component_name}</Badge>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {latestFailedJobs.length > 0 && (
+        <div className="bg-red-950/20 border border-red-500/20 rounded-xl p-5">
+          <div className="flex items-center gap-2 text-red-200 font-medium">
+            <AlertTriangle className="h-4 w-4" />
+            Latest error details
+          </div>
+          <div className="space-y-3 mt-4">
+            {latestFailedJobs.slice(0, 3).map(job => (
+              <div key={job.job_name} className="rounded-lg bg-red-950/30 border border-red-500/10 p-3">
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-sm text-red-100">{job.job_name}</span>
+                  {statusBadge(job.status)}
+                </div>
+                <div className="text-xs text-red-100/80 mt-2 font-mono break-all">
+                  {job.error_message ?? 'No error message recorded'}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 space-y-4">
         <div className="flex items-center justify-between gap-4 flex-wrap">
@@ -181,6 +279,15 @@ export function SchedulerPage() {
                     <div className="text-xs text-gray-500 mt-0.5">
                       Last duration {c.metadata_json.duration_seconds.toFixed(1)}s
                     </div>
+                  )}
+                  {c.status === 'unknown' && QUICK_FIX_JOBS[c.component_name] && (
+                    <button
+                      onClick={() => triggerJob.mutate(QUICK_FIX_JOBS[c.component_name])}
+                      disabled={triggerJob.isPending}
+                      className="mt-2 text-xs text-amber-300 hover:text-amber-200 disabled:opacity-50"
+                    >
+                      Run {QUICK_FIX_JOBS[c.component_name]} now
+                    </button>
                   )}
                 </div>
               </div>

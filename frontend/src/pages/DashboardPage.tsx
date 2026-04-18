@@ -5,6 +5,7 @@ import { ApiStatusPanel } from '../components/ApiStatusPanel'
 import { Badge, directionBadge, statusBadge } from '../components/Badge'
 import { StatCard } from '../components/StatCard'
 import {
+  API_BASE_URL,
   fetchActiveSignals,
   fetchDashboardSummary,
   fetchOpenTrades,
@@ -206,6 +207,12 @@ export function DashboardPage() {
             value: overview?.latest_successful_job?.job_name ?? 'No successful jobs yet',
             tone: overview?.latest_successful_job?.job_name ? 'ok' : 'warn',
             detail: overview?.latest_failed_job?.error_message ?? 'Latest success is shown when jobs begin completing',
+          },
+          {
+            label: 'API target',
+            value: API_BASE_URL,
+            tone: API_BASE_URL.includes('railway.app') ? 'ok' : 'warn',
+            detail: 'Frontend base URL currently used for live requests',
           },
         ]}
       />
