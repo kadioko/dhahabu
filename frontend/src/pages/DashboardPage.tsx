@@ -66,11 +66,11 @@ export function DashboardPage() {
   ].some(Boolean)
 
   const isShutdown = summary?.trading_mode === 'shutdown'
-  const pnlPct = summary?.pnl_today.realized_pnl_pct ?? 0
+  const pnlPct = summary?.pnl_today?.realized_pnl_pct ?? 0
   const pnlPositive = pnlPct >= 0
   const hasSignals = (signals?.length ?? 0) > 0
   const hasRankings = (rankings?.rankings?.length ?? 0) > 0
-  const hasSystemHealth = (summary?.system_health.total_components ?? 0) > 0
+  const hasSystemHealth = (summary?.system_health?.total_components ?? 0) > 0
   const isInitializing = !hasSignals || !hasRankings || !hasSystemHealth
   const marketPosture = isShutdown
     ? 'Protection mode'
@@ -120,7 +120,7 @@ export function DashboardPage() {
             <Badge variant="blue">Candle {formatDistanceToNow(new Date(overview.latest_candle_at), { addSuffix: true })}</Badge>
           )}
           {isShutdown ? <Badge variant="red">24H shutdown</Badge> : <Badge variant="green">System live</Badge>}
-          {summary?.system_health.total_components ? (
+          {summary?.system_health?.total_components ? (
             <Badge variant="gray">
               {summary.system_health.healthy_components}/{summary.system_health.total_components} components healthy
             </Badge>
@@ -214,9 +214,9 @@ export function DashboardPage() {
         <StatCard
           label="Today's PnL"
           value={`${pnlPositive ? '+' : ''}${(pnlPct * 100).toFixed(2)}%`}
-          sub={`$${(summary?.pnl_today.realized_pnl ?? 0).toFixed(0)}`}
+          sub={`$${(summary?.pnl_today?.realized_pnl ?? 0).toFixed(0)}`}
           trend={pnlPositive ? 'up' : 'down'}
-          urgent={summary?.pnl_today.trading_blocked}
+          urgent={summary?.pnl_today?.trading_blocked}
         />
         <StatCard
           label="Open Trades"
@@ -236,12 +236,12 @@ export function DashboardPage() {
         <StatCard label="Live Strategies" value={summary?.live_strategies ?? 0} sub="parameter sets active" />
         <StatCard
           label="System Health"
-          value={`${summary?.system_health.health_pct ?? 0}%`}
-          sub={`${summary?.system_health.healthy_components ?? 0}/${summary?.system_health.total_components ?? 0} healthy`}
+          value={`${summary?.system_health?.health_pct ?? 0}%`}
+          sub={`${summary?.system_health?.healthy_components ?? 0}/${summary?.system_health?.total_components ?? 0} healthy`}
           trend={
-            (summary?.system_health.health_pct ?? 0) >= 80
+            (summary?.system_health?.health_pct ?? 0) >= 80
               ? 'up'
-              : (summary?.system_health.health_pct ?? 0) >= 50
+              : (summary?.system_health?.health_pct ?? 0) >= 50
               ? 'neutral'
               : 'down'
           }
@@ -249,11 +249,11 @@ export function DashboardPage() {
         <StatCard
           label="Win Rate Today"
           value={
-            (summary?.pnl_today.trade_count ?? 0) > 0
-              ? `${(((summary?.pnl_today.win_count ?? 0) / (summary?.pnl_today.trade_count ?? 1)) * 100).toFixed(0)}%`
+            (summary?.pnl_today?.trade_count ?? 0) > 0
+              ? `${(((summary?.pnl_today?.win_count ?? 0) / (summary?.pnl_today?.trade_count ?? 1)) * 100).toFixed(0)}%`
               : '—'
           }
-          sub={`${summary?.pnl_today.win_count ?? 0}W / ${summary?.pnl_today.loss_count ?? 0}L`}
+          sub={`${summary?.pnl_today?.win_count ?? 0}W / ${summary?.pnl_today?.loss_count ?? 0}L`}
         />
         <StatCard
           label="Account Risk"
