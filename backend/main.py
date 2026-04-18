@@ -9,12 +9,15 @@ Lifecycle:
 from __future__ import annotations
 
 import asyncio
+import os
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import AsyncGenerator
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import ORJSONResponse
+from fastapi.responses import FileResponse, ORJSONResponse
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy import func, select
 
 from backend.core.config import settings
@@ -124,3 +127,25 @@ app.include_router(pnl.router, prefix="/pnl", tags=["pnl"])
 app.include_router(validation.router, prefix="/validation", tags=["validation"])
 app.include_router(scheduler.router, prefix="/scheduler", tags=["scheduler"])
 app.include_router(dashboard.router, prefix="/dashboard", tags=["dashboard"])
+
+# ── Frontend static files ─────────────────────────────────────────────────────
+# The Dockerfile copies the built frontend to backend/static.
+# In production (Railway) we serve it directly from here.
+# In local dev the Vite dev server handles the frontend separately.
+
+_STATIC_DIR = Path(__file__).parent / "static"
+
+if _STATIC_DIR.exists():
+    # Serve /assets/* (JS/CSS bundles, fonts, images) from the Vite build output
+    _assets_dir = _STATIC_DIR / "assets"
+    if _assets_dir.exists():
+        app.mount("/assets", StaticFiles(directory=str(_assets_dir)), name="assets")
+
+    @app.get("/{full_path:path}", include_in_schema=False)
+    async def spa_fallback(full_path: str = ""):  # noqa: ARG001
+        """Catch-all: serve index.html for any path not matched by an API route.
+        This enables SPA client-side routing (React Router) to work correctly."""
+        index = _STATIC_DIR / "index.html"
+        if index.exists():
+            return FileResponse(str(index))
+        return ORJSONResponse({"detail": "Frontend not built. Run: cd frontend && npm run build"}, status_code=404)
