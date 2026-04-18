@@ -1,43 +1,68 @@
 import { useQuery } from '@tanstack/react-query'
+import { format, formatDistanceToNow } from 'date-fns'
+import { AlertTriangle, ArrowRight, Radar, ShieldCheck, Sparkles } from 'lucide-react'
+import { Badge, directionBadge, statusBadge } from '../components/Badge'
+import { StatCard } from '../components/StatCard'
 import {
-  fetchDashboardSummary,
-  fetchRiskState,
   fetchActiveSignals,
+  fetchDashboardSummary,
   fetchOpenTrades,
+  fetchRiskState,
   fetchStrategyRankings,
   fetchSystemOverview,
 } from '../lib/api'
-import { StatCard } from '../components/StatCard'
-import { Badge, directionBadge, statusBadge } from '../components/Badge'
-import { format, formatDistanceToNow } from 'date-fns'
 
 const CONSECUTIVE_SL_LIMIT = 8
 
 export function DashboardPage() {
-  const { data: summary } = useQuery({
+  const summaryQuery = useQuery({
     queryKey: ['dashboard'],
     queryFn: fetchDashboardSummary,
   })
-  const { data: risk } = useQuery({
+  const riskQuery = useQuery({
     queryKey: ['risk'],
     queryFn: fetchRiskState,
   })
-  const { data: signals } = useQuery({
+  const signalsQuery = useQuery({
     queryKey: ['signals-active'],
     queryFn: () => fetchActiveSignals(),
   })
-  const { data: openTrades } = useQuery({
+  const openTradesQuery = useQuery({
     queryKey: ['trades-open'],
     queryFn: fetchOpenTrades,
   })
-  const { data: rankings } = useQuery({
+  const rankingsQuery = useQuery({
     queryKey: ['strategy-rankings'],
     queryFn: fetchStrategyRankings,
   })
-  const { data: overview } = useQuery({
+  const overviewQuery = useQuery({
     queryKey: ['system-overview'],
     queryFn: fetchSystemOverview,
   })
+
+  const summary = summaryQuery.data
+  const risk = riskQuery.data
+  const signals = signalsQuery.data
+  const openTrades = openTradesQuery.data
+  const rankings = rankingsQuery.data
+  const overview = overviewQuery.data
+
+  const isLoading = [
+    summaryQuery.isLoading,
+    riskQuery.isLoading,
+    signalsQuery.isLoading,
+    openTradesQuery.isLoading,
+    rankingsQuery.isLoading,
+    overviewQuery.isLoading,
+  ].some(Boolean)
+  const isError = [
+    summaryQuery.isError,
+    riskQuery.isError,
+    signalsQuery.isError,
+    openTradesQuery.isError,
+    rankingsQuery.isError,
+    overviewQuery.isError,
+  ].some(Boolean)
 
   const isShutdown = summary?.trading_mode === 'shutdown'
   const pnlPct = summary?.pnl_today.realized_pnl_pct ?? 0
@@ -46,36 +71,82 @@ export function DashboardPage() {
   const hasRankings = (rankings?.rankings?.length ?? 0) > 0
   const hasSystemHealth = (summary?.system_health.total_components ?? 0) > 0
   const isInitializing = !hasSignals || !hasRankings || !hasSystemHealth
+  const marketPosture = isShutdown
+    ? 'Protection mode'
+    : hasSignals
+    ? 'Opportunity scan live'
+    : 'Collecting context'
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-semibold text-gray-100">Command Center</h1>
-          <p className="text-sm text-gray-500 mt-0.5">
-            {summary?.timestamp ? format(new Date(summary.timestamp), 'MMM d, yyyy HH:mm') : '—'} UTC
-          </p>
+    <div className="space-y-6 p-4 md:p-6">
+      <section className="overflow-hidden rounded-[2rem] border border-white/10 bg-[linear-gradient(135deg,rgba(251,191,36,0.18),rgba(15,23,42,0.85)_40%,rgba(14,116,144,0.22))] p-6 shadow-[0_30px_120px_-60px_rgba(251,191,36,0.35)]">
+        <div className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
+          <div className="max-w-2xl">
+            <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-amber-300/20 bg-amber-300/10 px-3 py-1 text-xs uppercase tracking-[0.28em] text-amber-200/90">
+              <Sparkles className="h-3.5 w-3.5" />
+              Trading intelligence
+            </div>
+            <h1 className="text-3xl font-semibold tracking-tight text-white md:text-4xl">Command center</h1>
+            <p className="mt-3 max-w-xl text-sm leading-6 text-slate-300 md:text-base">
+              Keep the signal engine, risk posture, and live execution context in one place. This view now surfaces clearer system state even when jobs are still warming up.
+            </p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="rounded-3xl border border-white/10 bg-slate-950/55 px-4 py-4 backdrop-blur">
+              <div className="text-[11px] uppercase tracking-[0.28em] text-slate-500">Market posture</div>
+              <div className="mt-2 flex items-center gap-2 text-lg font-medium text-white">
+                {isShutdown ? <AlertTriangle className="h-5 w-5 text-red-300" /> : <Radar className="h-5 w-5 text-cyan-300" />}
+                {marketPosture}
+              </div>
+              <div className="mt-2 text-sm text-slate-400">
+                {summary?.timestamp ? format(new Date(summary.timestamp), 'MMM d, yyyy HH:mm') : 'Waiting for first snapshot'} UTC
+              </div>
+            </div>
+            <div className="rounded-3xl border border-white/10 bg-slate-950/55 px-4 py-4 backdrop-blur">
+              <div className="text-[11px] uppercase tracking-[0.28em] text-slate-500">Protection state</div>
+              <div className="mt-2 flex items-center gap-2 text-lg font-medium text-white">
+                <ShieldCheck className="h-5 w-5 text-emerald-300" />
+                {risk?.can_trade ? 'Trading allowed' : 'Guardrails engaged'}
+              </div>
+              <div className="mt-2 text-sm text-slate-400">
+                {risk?.block_reason ?? 'No active block reasons'}
+              </div>
+            </div>
+          </div>
         </div>
-        <div className="flex items-center gap-2 flex-wrap justify-end">
+        <div className="mt-5 flex flex-wrap items-center gap-2">
           {overview?.latest_candle_at && (
             <Badge variant="blue">Candle {formatDistanceToNow(new Date(overview.latest_candle_at), { addSuffix: true })}</Badge>
           )}
-          {isShutdown ? (
-            <Badge variant="red">🚨 24H SHUTDOWN</Badge>
-          ) : (
-            <Badge variant="green">● LIVE</Badge>
-          )}
+          {isShutdown ? <Badge variant="red">24H shutdown</Badge> : <Badge variant="green">System live</Badge>}
+          {summary?.system_health.total_components ? (
+            <Badge variant="gray">
+              {summary.system_health.healthy_components}/{summary.system_health.total_components} components healthy
+            </Badge>
+          ) : null}
         </div>
-      </div>
+      </section>
+
+      {isError && (
+        <div className="rounded-3xl border border-red-500/20 bg-red-950/30 p-4 text-sm text-red-100">
+          One or more dashboard feeds failed to load. The page will keep retrying, but the API or scheduler may need attention.
+        </div>
+      )}
+
+      {isLoading && !summary && (
+        <div className="rounded-3xl border border-white/10 bg-slate-950/70 p-6 text-sm text-slate-400">
+          Loading live dashboard state...
+        </div>
+      )}
 
       {isShutdown && (
-        <div className="bg-red-950/50 border border-red-500/30 rounded-xl p-4 flex items-start gap-3">
-          <span className="text-2xl">🚨</span>
+        <div className="flex items-start gap-3 rounded-3xl border border-red-500/30 bg-red-950/50 p-4">
+          <AlertTriangle className="mt-0.5 h-6 w-6 text-red-300" />
           <div>
-            <div className="text-red-400 font-semibold">Circuit Breaker Active — All Trading Suspended</div>
-            <div className="text-red-400/70 text-sm mt-1">{summary?.shutdown.reason}</div>
+            <div className="font-semibold text-red-300">Circuit breaker active. All trading is suspended.</div>
+            <div className="mt-1 text-sm text-red-100/70">{summary?.shutdown.reason}</div>
             {summary?.shutdown.ends_at && (
-              <div className="text-gray-400 text-xs mt-1">
+              <div className="mt-1 text-xs text-slate-300/70">
                 Resumes: {format(new Date(summary.shutdown.ends_at), 'MMM d HH:mm UTC')}
               </div>
             )}
@@ -84,12 +155,12 @@ export function DashboardPage() {
       )}
 
       {isInitializing && (
-        <div className="bg-blue-950/30 border border-blue-500/20 rounded-xl p-4">
-          <div className="text-blue-300 font-medium">System is healthy and still warming up</div>
-          <div className="text-sm text-blue-100/70 mt-1">
+        <div className="rounded-3xl border border-cyan-500/20 bg-cyan-950/20 p-4">
+          <div className="font-medium text-cyan-200">System is healthy and still warming up</div>
+          <div className="mt-1 text-sm text-cyan-100/70">
             Market data is connected. Signals, rankings, and component health will appear as scheduler jobs complete and strategies emit outputs.
           </div>
-          <div className="text-xs text-blue-100/50 mt-2">
+          <div className="mt-2 text-xs text-cyan-100/50">
             {overview?.latest_successful_job?.job_name
               ? `Latest completed job: ${overview.latest_successful_job.job_name}`
               : 'No completed scheduler jobs have been recorded yet'}
@@ -97,7 +168,7 @@ export function DashboardPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard
           label="Today's PnL"
           value={`${pnlPositive ? '+' : ''}${(pnlPct * 100).toFixed(2)}%`}
@@ -110,11 +181,7 @@ export function DashboardPage() {
           value={summary?.open_trades ?? 0}
           sub={`${risk?.open_trades_long ?? 0}L / ${risk?.open_trades_short ?? 0}S`}
         />
-        <StatCard
-          label="Active Signals"
-          value={summary?.active_signals ?? 0}
-          sub="last 4 hours"
-        />
+        <StatCard label="Active Signals" value={summary?.active_signals ?? 0} sub="last 4 hours" />
         <StatCard
           label="Consecutive SL"
           value={risk?.consecutive_sl_hits ?? 0}
@@ -123,12 +190,8 @@ export function DashboardPage() {
         />
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard
-          label="Live Strategies"
-          value={summary?.live_strategies ?? 0}
-          sub="parameter sets active"
-        />
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <StatCard label="Live Strategies" value={summary?.live_strategies ?? 0} sub="parameter sets active" />
         <StatCard
           label="System Health"
           value={`${summary?.system_health.health_pct ?? 0}%`}
@@ -157,77 +220,81 @@ export function DashboardPage() {
         />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-gray-900 border border-gray-800 rounded-xl">
-          <div className="px-5 py-4 border-b border-gray-800 flex items-center justify-between">
-            <h2 className="font-medium text-gray-100">Active Signals</h2>
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <div className="rounded-[2rem] border border-white/10 bg-slate-950/80">
+          <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
+            <h2 className="font-medium text-slate-100">Active Signals</h2>
             <Badge variant="yellow">{signals?.length ?? 0}</Badge>
           </div>
-          <div className="divide-y divide-gray-800">
+          <div className="divide-y divide-white/10">
             {(!signals || signals.length === 0) && (
-              <div className="px-5 py-8 text-center text-gray-600 text-sm">
+              <div className="px-5 py-8 text-center text-sm text-slate-500">
                 No active signals in the last 4 hours. Run the trading brain or wait for the next cycle.
               </div>
             )}
-            {signals?.slice(0, 5).map((s) => (
-              <div key={s.id} className="px-5 py-3 flex items-center justify-between">
+            {signals?.slice(0, 5).map((signal) => (
+              <div key={signal.id} className="flex items-center justify-between px-5 py-3">
                 <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    {directionBadge(s.direction)}
-                    <span className="text-sm font-medium text-gray-200">
-                      {s.strategy_name.replace(/_/g, ' ').toUpperCase()}
+                  <div className="mb-1 flex items-center gap-2">
+                    {directionBadge(signal.direction)}
+                    <span className="text-sm font-medium text-slate-200">
+                      {signal.strategy_name.replace(/_/g, ' ').toUpperCase()}
                     </span>
                   </div>
-                  <div className="text-xs text-gray-500">
-                    Entry: <span className="text-gray-300">{s.entry.toFixed(2)}</span>
-                    {' · '}SL: <span className="text-red-400">{s.stop_loss.toFixed(2)}</span>
-                    {' · '}TP: <span className="text-green-400">{s.take_profit.toFixed(2)}</span>
+                  <div className="text-xs text-slate-500">
+                    Entry: <span className="text-slate-300">{signal.entry.toFixed(2)}</span>
+                    {' · '}SL: <span className="text-red-400">{signal.stop_loss.toFixed(2)}</span>
+                    {' · '}TP: <span className="text-emerald-400">{signal.take_profit.toFixed(2)}</span>
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="text-xs text-gray-400">Conf: {(s.confidence * 100).toFixed(0)}%</div>
-                  <div className="text-xs text-gray-500">{s.timeframe}</div>
+                  <div className="text-xs text-slate-400">Conf: {(signal.confidence * 100).toFixed(0)}%</div>
+                  <div className="text-xs text-slate-500">{signal.timeframe}</div>
                 </div>
               </div>
             ))}
             {(signals?.length ?? 0) > 5 && (
-              <div className="px-5 py-2 text-center text-xs text-gray-600">
-                +{(signals?.length ?? 0) - 5} more — view all on Signals page
+              <div className="px-5 py-3 text-center text-xs text-slate-500">
+                <span className="inline-flex items-center gap-1">
+                  +{(signals?.length ?? 0) - 5} more
+                  <ArrowRight className="h-3.5 w-3.5" />
+                  view all on Signals page
+                </span>
               </div>
             )}
           </div>
         </div>
 
-        <div className="bg-gray-900 border border-gray-800 rounded-xl">
-          <div className="px-5 py-4 border-b border-gray-800">
-            <h2 className="font-medium text-gray-100">Strategy Leaderboard</h2>
+        <div className="rounded-[2rem] border border-white/10 bg-slate-950/80">
+          <div className="border-b border-white/10 px-5 py-4">
+            <h2 className="font-medium text-slate-100">Strategy Leaderboard</h2>
           </div>
-          <div className="divide-y divide-gray-800">
+          <div className="divide-y divide-white/10">
             {(!rankings?.rankings || rankings.rankings.length === 0) && (
-              <div className="px-5 py-8 text-center text-gray-600 text-sm">
+              <div className="px-5 py-8 text-center text-sm text-slate-500">
                 No live parameter sets yet. Self-healing and optimization jobs have not promoted any strategy versions.
               </div>
             )}
-            {rankings?.rankings?.map((r: any) => (
-              <div key={r.parameter_set_id} className="px-5 py-3 flex items-center justify-between">
+            {rankings?.rankings?.map((ranking: any) => (
+              <div key={ranking.parameter_set_id} className="flex items-center justify-between px-5 py-3">
                 <div className="flex items-center gap-3">
-                  <span className="text-gray-600 text-sm font-mono w-4">#{r.rank}</span>
+                  <span className="w-4 font-mono text-sm text-slate-600">#{ranking.rank}</span>
                   <div>
-                    <div className="text-sm font-medium text-gray-200">
-                      {r.strategy_name.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())}
+                    <div className="text-sm font-medium text-slate-200">
+                      {ranking.strategy_name.replace(/_/g, ' ').replace(/\b\w/g, (letter: string) => letter.toUpperCase())}
                     </div>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      {r.overfit_flag && <Badge variant="red" size="xs">OVERFIT</Badge>}
-                      {r.suppressed_flag && <Badge variant="orange" size="xs">SUPPRESSED</Badge>}
-                      {!r.overfit_flag && !r.suppressed_flag && <Badge variant="green" size="xs">LIVE</Badge>}
+                    <div className="mt-0.5 flex items-center gap-2">
+                      {ranking.overfit_flag && <Badge variant="red" size="xs">OVERFIT</Badge>}
+                      {ranking.suppressed_flag && <Badge variant="orange" size="xs">SUPPRESSED</Badge>}
+                      {!ranking.overfit_flag && !ranking.suppressed_flag && <Badge variant="green" size="xs">LIVE</Badge>}
                     </div>
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="text-sm font-mono text-yellow-400">
-                    {r.score != null ? r.score.toFixed(3) : '—'}
+                  <div className="font-mono text-sm text-amber-300">
+                    {ranking.score != null ? ranking.score.toFixed(3) : '—'}
                   </div>
-                  <div className="text-xs text-gray-600">score</div>
+                  <div className="text-xs text-slate-600">score</div>
                 </div>
               </div>
             ))}
@@ -235,39 +302,37 @@ export function DashboardPage() {
         </div>
       </div>
 
-      <div className="bg-gray-900 border border-gray-800 rounded-xl">
-        <div className="px-5 py-4 border-b border-gray-800">
-          <h2 className="font-medium text-gray-100">Open Trades</h2>
+      <div className="rounded-[2rem] border border-white/10 bg-slate-950/80">
+        <div className="border-b border-white/10 px-5 py-4">
+          <h2 className="font-medium text-slate-100">Open Trades</h2>
         </div>
         {(!openTrades || openTrades.length === 0) ? (
-          <div className="px-5 py-8 text-center text-gray-600 text-sm">
+          <div className="px-5 py-8 text-center text-sm text-slate-500">
             No open trades right now. The trade lifecycle panel will populate after approved signals trigger entries.
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-xs text-gray-500 border-b border-gray-800">
-                  <th className="text-left px-5 py-2">Status</th>
-                  <th className="text-left px-5 py-2">Entry</th>
-                  <th className="text-left px-5 py-2">SL</th>
-                  <th className="text-left px-5 py-2">TP</th>
-                  <th className="text-left px-5 py-2">Size</th>
-                  <th className="text-left px-5 py-2">Created</th>
+                <tr className="border-b border-white/10 text-xs text-slate-500">
+                  <th className="px-5 py-2 text-left">Status</th>
+                  <th className="px-5 py-2 text-left">Entry</th>
+                  <th className="px-5 py-2 text-left">SL</th>
+                  <th className="px-5 py-2 text-left">TP</th>
+                  <th className="px-5 py-2 text-left">Size</th>
+                  <th className="px-5 py-2 text-left">Created</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-800">
-                {openTrades.map((t) => (
-                  <tr key={t.id} className="hover:bg-gray-800/30">
-                    <td className="px-5 py-3">{statusBadge(t.status)}</td>
-                    <td className="px-5 py-3 font-mono text-gray-300">
-                      {t.entry_price?.toFixed(2) ?? '—'}
-                    </td>
-                    <td className="px-5 py-3 font-mono text-red-400">{t.stop_loss.toFixed(2)}</td>
-                    <td className="px-5 py-3 font-mono text-green-400">{t.take_profit.toFixed(2)}</td>
-                    <td className="px-5 py-3 font-mono text-gray-400">{t.position_size.toFixed(2)}</td>
-                    <td className="px-5 py-3 text-gray-500 text-xs">
-                      {format(new Date(t.created_at), 'HH:mm')}
+              <tbody className="divide-y divide-white/10">
+                {openTrades.map((trade) => (
+                  <tr key={trade.id} className="hover:bg-white/5">
+                    <td className="px-5 py-3">{statusBadge(trade.status)}</td>
+                    <td className="px-5 py-3 font-mono text-slate-300">{trade.entry_price?.toFixed(2) ?? '—'}</td>
+                    <td className="px-5 py-3 font-mono text-red-400">{trade.stop_loss.toFixed(2)}</td>
+                    <td className="px-5 py-3 font-mono text-emerald-400">{trade.take_profit.toFixed(2)}</td>
+                    <td className="px-5 py-3 font-mono text-slate-400">{trade.position_size.toFixed(2)}</td>
+                    <td className="px-5 py-3 text-xs text-slate-500">
+                      {format(new Date(trade.created_at), 'HH:mm')}
                     </td>
                   </tr>
                 ))}

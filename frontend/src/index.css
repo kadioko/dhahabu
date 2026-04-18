@@ -2,16 +2,27 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  color-scheme: dark;
+}
+
 * {
   box-sizing: border-box;
 }
 
+html {
+  background: #020617;
+}
+
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
+  min-height: 100vh;
+  font-family: 'Bahnschrift', 'Segoe UI Variable Display', 'Segoe UI', sans-serif;
   -webkit-font-smoothing: antialiased;
-  background: #030712;
-  color: #f3f4f6;
+  background:
+    radial-gradient(circle at top, rgba(245, 158, 11, 0.08), transparent 24%),
+    linear-gradient(180deg, #020617 0%, #050816 42%, #020617 100%);
+  color: #f8fafc;
 }
 
 ::-webkit-scrollbar {
@@ -30,4 +41,8 @@ body {
 
 ::-webkit-scrollbar-thumb:hover {
   background: #4b5563;
+}
+
+#root {
+  min-height: 100vh;
 }

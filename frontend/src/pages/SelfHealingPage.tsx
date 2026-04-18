@@ -6,7 +6,7 @@ import {
   fetchOverfitFlags,
   fetchPromotions,
 } from '../lib/api'
-import { Badge, statusBadge } from '../components/Badge'
+import { Badge } from '../components/Badge'
 import { format } from 'date-fns'
 import clsx from 'clsx'
 
@@ -86,7 +86,6 @@ export function SelfHealingPage() {
   const { data: overfitData } = useQuery({ queryKey: ['overfit-flags'], queryFn: fetchOverfitFlags })
   const { data: promos } = useQuery({ queryKey: ['promotions'], queryFn: fetchPromotions })
 
-  const overfitCount = overfitData?.overfit_sets?.length ?? 0
   const passedWF = wfRuns?.filter((r: any) => !r.overfit_flag).length ?? 0
   const failedWF = wfRuns?.filter((r: any) => r.overfit_flag).length ?? 0
   const passedMC = mcRuns?.filter((r: any) => r.pass_flag).length ?? 0

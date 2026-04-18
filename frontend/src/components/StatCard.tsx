@@ -1,4 +1,5 @@
 import clsx from 'clsx'
+import { ArrowDownRight, ArrowRight, ArrowUpRight } from 'lucide-react'
 
 interface StatCardProps {
   label: string
@@ -10,36 +11,48 @@ interface StatCardProps {
 }
 
 export function StatCard({ label, value, sub, trend, urgent, className }: StatCardProps) {
-  const trendIcon = trend === 'up' ? '↑' : trend === 'down' ? '↓' : null
+  const TrendIcon = trend === 'up' ? ArrowUpRight : trend === 'down' ? ArrowDownRight : ArrowRight
 
   return (
     <div
       className={clsx(
-        'bg-gray-900 border rounded-xl p-5',
-        urgent ? 'border-red-500/40' : 'border-gray-800',
+        'rounded-[1.75rem] border p-5 shadow-[0_20px_80px_-40px_rgba(15,23,42,0.95)] backdrop-blur-sm',
+        urgent ? 'border-red-500/30 bg-red-950/30' : 'border-white/10 bg-slate-950/80',
         className
       )}
     >
-      <div className="text-xs text-gray-500 uppercase tracking-widest mb-2">{label}</div>
-      <div className="flex items-baseline gap-1.5">
+      <div className="mb-3 text-[11px] uppercase tracking-[0.28em] text-slate-500">{label}</div>
+      <div className="flex items-center gap-2">
         <div
           className={clsx(
-            'text-2xl font-bold tabular-nums',
-            urgent ? 'text-red-400' : trend === 'up' ? 'text-green-400' : trend === 'down' ? 'text-red-400' : 'text-gray-100'
+            'text-3xl font-semibold tracking-tight tabular-nums',
+            urgent
+              ? 'text-red-300'
+              : trend === 'up'
+              ? 'text-emerald-300'
+              : trend === 'down'
+              ? 'text-red-300'
+              : 'text-slate-50'
           )}
         >
           {value}
         </div>
-        {trendIcon && !urgent && (
-          <span className={clsx(
-            'text-sm font-semibold',
-            trend === 'up' ? 'text-green-500' : 'text-red-500'
-          )}>
-            {trendIcon}
+        {trend && !urgent && (
+          <span
+            className={clsx(
+              'inline-flex h-8 w-8 items-center justify-center rounded-full border',
+              trend === 'up'
+                ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
+                : trend === 'down'
+                ? 'border-red-500/30 bg-red-500/10 text-red-300'
+                : 'border-slate-500/30 bg-slate-500/10 text-slate-300'
+            )}
+          >
+            <TrendIcon className="h-4 w-4" />
           </span>
         )}
       </div>
-      {sub && <div className="text-xs text-gray-500 mt-1">{sub}</div>}
+      {sub && <div className="mt-2 text-sm text-slate-400">{sub}</div>}
     </div>
   )
 }

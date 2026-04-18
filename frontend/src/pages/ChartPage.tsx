@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { createChart, IChartApi } from 'lightweight-charts'
 import { fetchCandles, fetchActiveSignals } from '../lib/api'
-import { Badge, directionBadge } from '../components/Badge'
+import { directionBadge } from '../components/Badge'
 
 const TIMEFRAMES = [
   { label: 'M15', value: '15min' },
