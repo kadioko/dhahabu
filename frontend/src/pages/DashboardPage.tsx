@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { format, formatDistanceToNow } from 'date-fns'
 import { AlertTriangle, ArrowRight, Radar, ShieldCheck, Sparkles } from 'lucide-react'
+import { ApiStatusPanel } from '../components/ApiStatusPanel'
 import { Badge, directionBadge, statusBadge } from '../components/Badge'
 import { StatCard } from '../components/StatCard'
 import {
@@ -167,6 +168,47 @@ export function DashboardPage() {
           </div>
         </div>
       )}
+
+      <ApiStatusPanel
+        endpointLabel="Dashboard, overview, and signal feeds"
+        query={overviewQuery}
+        onRefresh={() => {
+          void summaryQuery.refetch()
+          void riskQuery.refetch()
+          void signalsQuery.refetch()
+          void rankingsQuery.refetch()
+          void openTradesQuery.refetch()
+          void overviewQuery.refetch()
+        }}
+        items={[
+          {
+            label: 'Overview API',
+            value: overviewQuery.isError
+              ? 'Unavailable'
+              : overview?.latest_candle_at
+              ? 'Connected'
+              : 'Connected, waiting for data',
+            tone: overviewQuery.isError ? 'error' : overview?.latest_candle_at ? 'ok' : 'warn',
+            detail: overview?.latest_candle_at
+              ? `Latest candle ${formatDistanceToNow(new Date(overview.latest_candle_at), { addSuffix: true })}`
+              : 'No candle timestamps returned yet',
+          },
+          {
+            label: 'Signals feed',
+            value: signalsQuery.isError ? 'Request failed' : `${signals?.length ?? 0} active signals`,
+            tone: signalsQuery.isError ? 'error' : (signals?.length ?? 0) > 0 ? 'ok' : 'warn',
+            detail: signalsQuery.isError
+              ? 'Trading brain data is not loading'
+              : 'Approved signals from the last 4 hours',
+          },
+          {
+            label: 'Scheduler activity',
+            value: overview?.latest_successful_job?.job_name ?? 'No successful jobs yet',
+            tone: overview?.latest_successful_job?.job_name ? 'ok' : 'warn',
+            detail: overview?.latest_failed_job?.error_message ?? 'Latest success is shown when jobs begin completing',
+          },
+        ]}
+      />
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard

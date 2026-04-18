@@ -33,6 +33,14 @@ class Settings(BaseSettings):
     api_port: int = 8000
     api_reload: bool = False
     port: int = 8000  # Railway uses PORT env var
+    cors_allowed_origins: list[str] = Field(
+        default=[
+            "http://localhost:3000",
+            "http://localhost:5173",
+            "https://dhahabu-rose.vercel.app",
+            "https://dhahabu.vercel.app",
+        ]
+    )
 
     # ── Database ─────────────────────────────────────────────────────────────
     database_url: str = "postgresql+asyncpg://postgres:password@localhost:5432/dhahabu"
@@ -121,6 +129,13 @@ class Settings(BaseSettings):
     def parse_windows(cls, v: str | list) -> list[int]:
         if isinstance(v, str):
             return [int(w.strip()) for w in v.split(",")]
+        return v
+
+    @field_validator("cors_allowed_origins", mode="before")
+    @classmethod
+    def parse_cors_allowed_origins(cls, v: str | list[str]) -> list[str]:
+        if isinstance(v, str):
+            return [origin.strip() for origin in v.split(",") if origin.strip()]
         return v
 
     @property

@@ -91,9 +91,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"] if settings.environment != "production" else [
-        "https://dhahabu.railway.app"
-    ],
+    allow_origins=["*"] if settings.environment != "production" else settings.cors_allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

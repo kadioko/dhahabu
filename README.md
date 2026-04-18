@@ -170,7 +170,8 @@ See `.env.example` for all configuration options.
 | `MAX_DAILY_LOSS_PCT` | No | `0.03` | Daily loss cap that blocks new trades (3%) |
 | `CONSECUTIVE_STOP_LOSSES_LIMIT` | No | `8` | Consecutive SL hits before 24h shutdown |
 | `MAX_SIMULTANEOUS_TRADES` | No | `5` | Max open trades at any time |
-| `VITE_API_URL` | No | `""` | Frontend API base URL (empty = same origin) |
+| `VITE_API_URL` | No | `"/api"` | Frontend API base URL |
+| `CORS_ALLOWED_ORIGINS` | No | local + Vercel defaults | Comma-separated frontend origins allowed to call the backend directly |
 
 ## Development Notes
 
@@ -191,7 +192,9 @@ All jobs can be triggered manually via `POST /scheduler/jobs/{job_name}/run` or 
 
 ### Frontend environment
 
-The frontend reads `VITE_API_URL` at build time. For local development without a proxy, set it to `http://localhost:8000`. In Railway or Docker deployments, leave it empty to use same-origin routing.
+The frontend reads `VITE_API_URL` at build time. For local development without a proxy, set it to `http://localhost:8000`.
+
+For Vercel production deploys, the frontend now defaults to `/api` and expects a Vercel serverless proxy. Set `API_BASE_URL` in the Vercel project to your live backend URL, for example your Railway service URL. If you prefer calling the backend directly from the browser instead of using the proxy, set `VITE_API_URL` to that backend URL and include your Vercel frontend domain in `CORS_ALLOWED_ORIGINS`.
 
 ## Troubleshooting
 
