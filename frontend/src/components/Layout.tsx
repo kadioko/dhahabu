@@ -11,17 +11,18 @@ import {
   Shield,
   Wallet,
 } from 'lucide-react'
+import { preloadRouteModules } from '../lib/route-modules'
 import { fetchSystemOverview } from '../lib/api'
 
 const NAV = [
-  { to: '/', label: 'Dashboard', icon: LayoutDashboard },
-  { to: '/chart', label: 'Chart', icon: CandlestickChart },
-  { to: '/signals', label: 'Signals', icon: Activity },
-  { to: '/trades', label: 'Trades', icon: BarChart3 },
-  { to: '/pnl', label: 'PnL', icon: Wallet },
-  { to: '/risk', label: 'Risk', icon: Shield },
-  { to: '/self-healing', label: 'Self-Healing', icon: BrainCircuit },
-  { to: '/scheduler', label: 'Scheduler', icon: CalendarClock },
+  { to: '/', label: 'Dashboard', icon: LayoutDashboard, preload: preloadRouteModules.dashboard },
+  { to: '/chart', label: 'Chart', icon: CandlestickChart, preload: preloadRouteModules.chart },
+  { to: '/signals', label: 'Signals', icon: Activity, preload: preloadRouteModules.signals },
+  { to: '/trades', label: 'Trades', icon: BarChart3, preload: preloadRouteModules.trades },
+  { to: '/pnl', label: 'PnL', icon: Wallet, preload: preloadRouteModules.pnl },
+  { to: '/risk', label: 'Risk', icon: Shield, preload: preloadRouteModules.risk },
+  { to: '/self-healing', label: 'Self-Healing', icon: BrainCircuit, preload: preloadRouteModules.selfHealing },
+  { to: '/scheduler', label: 'Scheduler', icon: CalendarClock, preload: preloadRouteModules.scheduler },
 ]
 
 export function Layout() {
@@ -51,12 +52,14 @@ export function Layout() {
         </div>
 
         <nav className="grid gap-1 overflow-x-auto px-3 py-4 md:flex-1">
-          {NAV.map(({ to, label, icon: Icon }) => {
+          {NAV.map(({ to, label, icon: Icon, preload }) => {
             const active = to === '/' ? pathname === '/' : pathname.startsWith(to)
             return (
               <Link
                 key={to}
                 to={to}
+                onMouseEnter={() => void preload()}
+                onFocus={() => void preload()}
                 className={clsx(
                   'flex items-center gap-3 rounded-2xl px-3 py-3 text-sm font-medium transition-all',
                   active

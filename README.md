@@ -180,6 +180,10 @@ always on → track consecutive SL hits → ≥8 in a row?
 | `/self-healing` | Self-Healing | Backtest results, walk-forward, Monte Carlo, overfit flags, promotions |
 | `/scheduler` | Scheduler | Job status table with manual trigger buttons |
 
+## Operations Docs
+
+- [Manual Admin Triggers Guide](docs/MANUAL_ADMIN_TRIGGERS.md) - detailed explanations of every Scheduler trigger in both technical and plain-English terms
+
 ## Quick Start
 
 ```bash
