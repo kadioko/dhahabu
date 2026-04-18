@@ -7,6 +7,47 @@ export const api = axios.create({
   timeout: 15000,
 })
 
+function describeType(value: unknown): string {
+  if (Array.isArray(value)) return 'array'
+  if (value === null) return 'null'
+  return typeof value
+}
+
+function assertNotHtml(data: unknown, endpoint: string): void {
+  if (typeof data === 'string' && data.trim().startsWith('<!doctype html')) {
+    throw new Error(`Expected JSON from ${endpoint} but received HTML. Check the API proxy or deploy rewrites.`)
+  }
+}
+
+function expectArray<T>(data: unknown, endpoint: string): T[] {
+  assertNotHtml(data, endpoint)
+  if (!Array.isArray(data)) {
+    throw new Error(`Expected array from ${endpoint} but received ${describeType(data)}.`)
+  }
+  return data as T[]
+}
+
+function expectObject<T extends object>(data: unknown, endpoint: string): T {
+  assertNotHtml(data, endpoint)
+  if (!data || typeof data !== 'object' || Array.isArray(data)) {
+    throw new Error(`Expected object from ${endpoint} but received ${describeType(data)}.`)
+  }
+  return data as T
+}
+
+api.interceptors.response.use(
+  (response) => {
+    const contentType = String(response.headers['content-type'] || '')
+    if (contentType.includes('text/html')) {
+      throw new Error(
+        `Expected JSON from ${response.config.url ?? 'request'} but received HTML. Check Vercel proxy routing and API_BASE_URL.`
+      )
+    }
+    return response
+  },
+  (error) => Promise.reject(error)
+)
+
 export type Signal = {
   id: string
   strategy_name: string
@@ -184,60 +225,143 @@ export type SystemOverview = {
   } | null
 }
 
-// API functions
+export type StrategyRanking = {
+  rank: number
+  strategy_name: string
+  parameter_set_id: string
+  score: number | null
+  overfit_flag: boolean
+  suppressed_flag: boolean
+  promoted_at: string | null
+  status: string
+}
+
+export type StrategyRankingsResponse = {
+  rankings: StrategyRanking[]
+  total: number
+}
+
+export type OverfitFlag = {
+  id: string
+  strategy_name: string
+  score: number | null
+  suppressed_flag: boolean
+  status: string
+}
+
+export type OverfitFlagsResponse = {
+  overfit_sets: OverfitFlag[]
+}
+
+export type PromotionRecord = {
+  id: string
+  strategy_name: string
+  score: number | null
+  promoted_at?: string | null
+  discarded_at?: string | null
+  discard_reason?: string | null
+  status: string
+}
+
+export type PromotionsResponse = {
+  promoted: PromotionRecord[]
+  discarded: PromotionRecord[]
+}
+
 export const fetchDashboardSummary = () =>
-  api.get<DashboardSummary>('/dashboard/summary').then(r => r.data)
+  api.get('/dashboard/summary').then((r) => expectObject<DashboardSummary>(r.data, '/dashboard/summary'))
 
 export const fetchRiskState = () =>
-  api.get<RiskState>('/risk/state').then(r => r.data)
+  api.get('/risk/state').then((r) => expectObject<RiskState>(r.data, '/risk/state'))
 
 export const fetchActiveSignals = (symbol = 'XAU/USD') =>
-  api.get<Signal[]>('/signals/active', { params: { symbol } }).then(r => r.data)
+  api
+    .get('/signals/active', { params: { symbol } })
+    .then((r) => expectArray<Signal>(r.data, '/signals/active'))
 
 export const fetchSignals = (params?: Record<string, unknown>) =>
-  api.get<Signal[]>('/signals', { params }).then(r => r.data)
+  api.get('/signals', { params }).then((r) => expectArray<Signal>(r.data, '/signals'))
 
 export const fetchOpenTrades = () =>
-  api.get<Trade[]>('/trades/open').then(r => r.data)
+  api.get('/trades/open').then((r) => expectArray<Trade>(r.data, '/trades/open'))
 
 export const fetchTradeHistory = (params?: Record<string, unknown>) =>
-  api.get<Trade[]>('/trades/history', { params }).then(r => r.data)
+  api.get('/trades/history', { params }).then((r) => expectArray<Trade>(r.data, '/trades/history'))
 
 export const fetchCandles = (symbol: string, timeframe: string, limit = 200) =>
-  api.get<{ candles: Candle[]; symbol: string; timeframe: string }>(
-    '/candles/latest',
-    { params: { symbol, timeframe, limit } }
-  ).then(r => r.data)
+  api
+    .get('/candles/latest', { params: { symbol, timeframe, limit } })
+    .then((r) => {
+      const data = expectObject<{ candles: unknown; symbol: string; timeframe: string }>(r.data, '/candles/latest')
+      return {
+        ...data,
+        candles: expectArray<Candle>(data.candles, '/candles/latest candles'),
+      }
+    })
 
 export const fetchStrategyRankings = () =>
-  api.get('/strategies/rankings').then(r => r.data)
+  api
+    .get('/strategies/rankings')
+    .then((r) => {
+      const data = expectObject<{ rankings: unknown; total: unknown }>(r.data, '/strategies/rankings')
+      return {
+        rankings: expectArray<StrategyRanking>(data.rankings, '/strategies/rankings rankings'),
+        total: Number(data.total ?? 0),
+      } satisfies StrategyRankingsResponse
+    })
 
 export const fetchBacktestRuns = (params?: Record<string, unknown>) =>
-  api.get<BacktestRun[]>('/validation/backtests', { params }).then(r => r.data)
+  api
+    .get('/validation/backtests', { params })
+    .then((r) => expectArray<BacktestRun>(r.data, '/validation/backtests'))
 
 export const fetchWalkForwardRuns = (params?: Record<string, unknown>) =>
-  api.get<WalkForwardRun[]>('/validation/walk-forward', { params }).then(r => r.data)
+  api
+    .get('/validation/walk-forward', { params })
+    .then((r) => expectArray<WalkForwardRun>(r.data, '/validation/walk-forward'))
 
 export const fetchMonteCarloRuns = (params?: Record<string, unknown>) =>
-  api.get<MonteCarloRun[]>('/validation/monte-carlo', { params }).then(r => r.data)
+  api
+    .get('/validation/monte-carlo', { params })
+    .then((r) => expectArray<MonteCarloRun>(r.data, '/validation/monte-carlo'))
 
 export const fetchOverfitFlags = () =>
-  api.get('/validation/overfit-flags').then(r => r.data)
+  api
+    .get('/validation/overfit-flags')
+    .then((r) => {
+      const data = expectObject<{ overfit_sets: unknown }>(r.data, '/validation/overfit-flags')
+      return {
+        overfit_sets: expectArray<OverfitFlag>(data.overfit_sets, '/validation/overfit-flags overfit_sets'),
+      } satisfies OverfitFlagsResponse
+    })
 
 export const fetchPromotions = () =>
-  api.get('/validation/promotions').then(r => r.data)
+  api
+    .get('/validation/promotions')
+    .then((r) => {
+      const data = expectObject<{ promoted: unknown; discarded: unknown }>(r.data, '/validation/promotions')
+      return {
+        promoted: expectArray<PromotionRecord>(data.promoted, '/validation/promotions promoted'),
+        discarded: expectArray<PromotionRecord>(data.discarded, '/validation/promotions discarded'),
+      } satisfies PromotionsResponse
+    })
 
 export const fetchSchedulerJobs = () =>
-  api.get<{ jobs: SchedulerJob[] }>('/scheduler/jobs/latest').then(r => r.data)
+  api
+    .get('/scheduler/jobs/latest')
+    .then((r) => {
+      const data = expectObject<{ jobs: unknown }>(r.data, '/scheduler/jobs/latest')
+      return { jobs: expectArray<SchedulerJob>(data.jobs, '/scheduler/jobs/latest jobs') }
+    })
 
 export const fetchSystemState = () =>
-  api.get<SystemComponent[]>('/system/state').then(r => r.data)
+  api.get('/system/state').then((r) => expectArray<SystemComponent>(r.data, '/system/state'))
 
 export const fetchSystemOverview = () =>
-  api.get<SystemOverview>('/system/overview').then(r => r.data)
+  api.get('/system/overview').then((r) => expectObject<SystemOverview>(r.data, '/system/overview'))
 
 export const triggerSchedulerJob = (jobName: string) =>
-  api.post(`/scheduler/jobs/${jobName}/run`).then(r => r.data)
+  api.post(`/scheduler/jobs/${jobName}/run`).then((r) => expectObject<Record<string, unknown>>(r.data, `/scheduler/jobs/${jobName}/run`))
 
 export const fetchDailyPnL = (days = 30) =>
-  api.get('/pnl/daily', { params: { days } }).then(r => r.data)
+  api.get('/pnl/daily', { params: { days } }).then((r) => expectArray<Record<string, any>>(r.data, '/pnl/daily'))
