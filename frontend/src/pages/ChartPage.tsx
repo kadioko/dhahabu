@@ -13,6 +13,9 @@ const TIMEFRAMES = [
   { label: 'D1', value: '1day' },
 ]
 
+const CHART_REFRESH_INTERVAL_MS = 30_000
+const SIGNALS_REFRESH_INTERVAL_MS = 45_000
+
 export function ChartPage() {
   const chartRef = useRef<HTMLDivElement>(null)
   const chartApi = useRef<IChartApi | null>(null)
@@ -21,12 +24,15 @@ export function ChartPage() {
   const candleQuery = useQuery({
     queryKey: ['candles', timeframe],
     queryFn: () => fetchCandles('XAU/USD', timeframe, 300),
-    refetchInterval: 60_000,
+    refetchInterval: CHART_REFRESH_INTERVAL_MS,
+    refetchIntervalInBackground: true,
   })
 
   const signalsQuery = useQuery({
-    queryKey: ['signals-active'],
+    queryKey: ['signals-active', timeframe],
     queryFn: () => fetchActiveSignals('XAU/USD'),
+    refetchInterval: SIGNALS_REFRESH_INTERVAL_MS,
+    refetchIntervalInBackground: true,
   })
 
   const candleData = candleQuery.data
@@ -34,6 +40,8 @@ export function ChartPage() {
   const isLoading = candleQuery.isLoading
   const isFetching = candleQuery.isFetching
   const isError = candleQuery.isError
+  const isInitialLoad = isLoading && !candleQuery.data
+  const isBackgroundRefreshing = isFetching && !isInitialLoad
 
   useEffect(() => {
     if (!chartRef.current) return
@@ -129,12 +137,12 @@ export function ChartPage() {
               </div>
             </div>
           )}
-          {(isLoading || isFetching) && (
+          {isInitialLoad && (
             <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-gray-950/50 text-sm text-gray-400">
               Loading candles...
             </div>
           )}
-          {!isLoading && !isFetching && !isError && !hasCandles && (
+          {!isInitialLoad && !isFetching && !isError && !hasCandles && (
             <div className="absolute inset-0 flex items-center justify-center rounded-lg border border-dashed border-gray-700 bg-gray-950/30 text-sm text-gray-500">
               No candle data available yet
             </div>
@@ -144,6 +152,8 @@ export function ChartPage() {
           <span>
             {isError
               ? 'API connection failed'
+              : isBackgroundRefreshing
+              ? `Refreshing ${candleCount} candles in the background`
               : hasCandles
               ? `${candleCount} candles loaded`
               : 'Waiting for initial market data bootstrap'}
